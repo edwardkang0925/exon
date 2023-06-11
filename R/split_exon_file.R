@@ -3,6 +3,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 # Assign the first argument to trait
 trait <- args[1]
+numSplit <- args[2] # ex) 100
 
 # split_exon_files.R
 exon.path <- paste0("outputs/afterRegression/", trait, "/combined/residualExonExpression.RDS")
@@ -16,7 +17,7 @@ phenotype.df <- read.csv(phenotype.df.path)
 exon_cols <- grep("ENSG", colnames(exon_data), value = TRUE)
 print(paste0("Dim of combined residual expression: ", dim(exon_data)))
 # Calculate the number of exons per file
-exons_per_file <- ceiling(length(exon_cols) / 100)
+exons_per_file <- ceiling(length(exon_cols) / numSplit)
 
 # Split the exons into 200 groups
 split_exons <- split(exon_cols, ceiling(seq_along(exon_cols) / exons_per_file))
