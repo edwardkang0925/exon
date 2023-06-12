@@ -1,3 +1,4 @@
+.libPaths("/project/renv/library/R-4.2/aarch64-unknown-linux-gnu")
 #!/usr/bin/env Rscript
 library(optparse)
 library(SeqArray)
@@ -10,18 +11,18 @@ library(foreach)
 library(GENESIS)
 
 parser <- OptionParser()
-parser <- add_option(parser, c("--exon.path"), type="character",
-                     default="outputs/conditionalGenesisInput_all/BMI/conditionalSlice_001.RDS",
-                     help="path to exon slice",
-                     metavar="'/path/to/file/conditionalSlice_###.RDS'")
-parser <- add_option(parser, c("--output.path"), type="character",
-                     default="outputs/conditionalGenesisOut_all/BMI/results_001.RDS",
-                     help="output filename including path",
-                     metavar="/path/to/output/outputfilename")
 parser <- add_option(parser, c("--trait"), type="character",
                      default="BMI",
                      help="trait ex) BMI",
                      metavar="trait name")
+parser <- add_option(parser, c("--exon.path"), type="character",
+                     default="outputs/conditionalGenesisInput_all/BMI/conditionalSlice_001.RDS",
+                     help="path to exon slice",
+                     metavar="'/path/to/file/conditionalSlice_###.RDS'")
+parser <- add_option(parser, c("--outputFile"), type="character",
+                     default="outputs/conditionalGenesisOut_all/BMI/results_001.RDS",
+                     help="output filename including path",
+                     metavar="/path/to/output/outputfilename")
 
 opt = parse_args(parser)
 
@@ -41,7 +42,7 @@ x = foreach(
 
 # read command line input
 exon.path <- opt$exon.path 
-output.path <- opt$output.path
+output.path <- opt$outputFile
 trait <- opt$trait # New argument for the trait
 
 # create output dir
@@ -51,10 +52,11 @@ if (!dir.exists(directory_path)) {
 }
 
 # path to required files: 
-kinship.matrix.path <- paste0("data/kinship/kinship_",trait,".RDS")
-kinship_matrix <- readRDS(kinship.matrix.path)
-trait.df.path <- paste0("data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/adjusted_", trait,".csv")
+kinship.matrix.path <- paste0("/project/data/kinship/kinship_",trait,".RDS")
+kinship.matrix <- readRDS(kinship.matrix.path)
+trait.df.path <- paste0("/project/data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/adjusted_", trait,".csv")
 trait.df <- read.csv(trait.df.path)
+print(kinship.matrix)
 
 
 # Load the exon expression data
@@ -72,7 +74,6 @@ for (i in seq_along(exon_data)) {
   current_df$subject <- rownames(current_df)
   merged_df <- merge(current_df, trait.df, by="subject") %>%
     column_to_rownames(var="subject")
-
   
   # Find columns to work with
   colnames_data <- colnames(merged_df)
@@ -90,30 +91,35 @@ for (i in seq_along(exon_data)) {
       gene = merged_df[[gene_column]],
       row.names = rownames(merged_df)
     )
-    # Fit the null model
-    null_model <- fitNullModel(
-      x = model_data,
-      outcome = "trait",
-      covars = "gene",
-      cov.mat = kinship_matrix
-    )
-    
-    # Fit the alternative model and perform the association test
-    alt_model <- fitNullModel(
-      x = model_data,
-      outcome = "trait",
-      covars = c("gene", "exon"),
-      cov.mat = kinship_matrix
-    )
-    
-    # Calculate LRT
-    lrt <- 2 * (alt_model$logLik - null_model$logLik)
-    p_value_lrt <- pchisq(lrt, df = 1, lower.tail = FALSE)
-    p_value_lrt_bon <- min(1.0, p_value_lrt * length(exon_columns))
-    
-    # Append the results to the results data frame
-    results <- rbind(results, data.frame(exon = exon_col, p_lrt = p_value_lrt,
-                                         p_lrt_bon = p_value_lrt_bon, lrt_stat=lrt))
+    tryCatch({
+      # Fit the null model
+      null_model <- fitNullModel(
+        x = model_data,
+        outcome = "trait",
+        covars = "gene",
+        cov.mat = kinship.matrix
+      )
+      
+      # Fit the alternative model and perform the association test
+      alt_model <- fitNullModel(
+        x = model_data,
+        outcome = "trait",
+        covars = c("gene", "exon"),
+        cov.mat = kinship.matrix
+      )
+      
+      # Calculate LRT
+      lrt <- 2 * (alt_model$logLik - null_model$logLik)
+      p_value_lrt <- pchisq(lrt, df = 1, lower.tail = FALSE)
+      p_value_lrt_bon <- min(1.0, p_value_lrt * length(exon_columns))
+      
+      # Append the results to the results data frame
+      results <- rbind(results, data.frame(exon = exon_col, p_lrt = p_value_lrt,
+                                          p_lrt_bon = p_value_lrt_bon, lrt_stat=lrt))
+    }, error = function(e) {
+      print(paste0("Error: ", e))
+      print(paste0("Exon: ", exon_col))
+    })
   }
   
   # Add the results to the results list

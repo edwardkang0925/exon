@@ -1,3 +1,4 @@
+.libPaths("/project/renv/library/R-4.2/aarch64-unknown-linux-gnu")
 #!/usr/bin/env Rscript
 library(optparse)
 library(foreach)
@@ -17,6 +18,16 @@ parser <- add_option(parser, c("--trait"), type="character",
                      default="BMI",
                      help="trait ex) BMI",
                      metavar="trait name")
+parser <- add_option(parser, c("--number_of_plates"), type="numeric", default=28,
+                      help="number of plates")
+parser <- add_option(parser, c("--visitcode"), type="character", default="v1",
+                      help="visitcode ex) v1 or v2")
+parser <- add_option(parser, c("--numSlice"), type="numeric", default=100,
+                      help="number of slices")
+parser <- add_option(parser, c("--pcFilePath"), type="character", default="",
+                      help="pc file path")
+parser <- add_option(parser, c("--vstFilePath"), type="character", default="",
+                      help="vst file path")
 opt = parse_args(parser)
 
 # check cmd line arguments
@@ -36,9 +47,9 @@ x = foreach(
 # after preprocess_appending.R (subset samples for trait, bin filter, vst, pc)
 # command line argument
 phenotype= opt$trait
-number_of_plates=28
-visitcode_param = "v1"
-numSlice = 100
+number_of_plates= opt$number_of_plates
+visitcode_param = opt$visitcode # "v1"
+numSlice = opt$numSlice # 100
 # create output path
 outputPATH = paste0("outputs/beforeRegression/",phenotype,"/")
 slicedOutputPATH = paste0(outputPATH, "sliced/")
@@ -49,16 +60,16 @@ if (!dir.exists(slicedOutputPATH)) {
 }
 
 # input files paths
-misc_file_path="data/MISC_FINAL_ROUND/"
-input_file_path="outputs/preprocessed/"
-phenotype_file_path="data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/"
+misc_file_path="/project/data/MISC_FINAL_ROUND/"
+input_file_path="outputs/preprocessed/" #FIXME: when using nextflow, take this as command line argument.
+phenotype_file_path="/project/data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/"
 
 blood_all_filepath <- paste0(misc_file_path, "blood_all.csv")
 metadata_filepath <- paste0(misc_file_path, "sample_meta_20220608.csv")
 subject_age_fc_filepath <- paste0(misc_file_path, "subject_fc_sex_age_revised_no_blood_cancer.csv")
 phenotype_filepath <- paste0(phenotype_file_path, "adjusted_",phenotype,".csv")
-pcs_filepath <- paste0(input_file_path, "pc_", phenotype, ".csv")
-exon_expression_filepath <- paste0(input_file_path, "vst_", phenotype,".RDS")
+pcs_filepath <- paste0(opt$pcFilePath)
+exon_expression_filepath <- paste0(opt$vstFilePath)
 
 #reading and pre-processing_files
 blood_all_df <- read.table(file = blood_all_filepath,  header = TRUE, sep = ",")
@@ -79,7 +90,7 @@ for (i in c(2:number_of_plates)){
 }
 
 ## preprocess pcs_df 
-pcs.10.df <- pcs_df[, c("X", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")]
+pcs.10.df <- pcs_df[, c("X", "PC1", "PC2", "PC3", "PC4")]
 pcs.10.df <- dplyr::rename(pcs.10.df, subject = X) # rename column
 # reformat subject column: s<subjectID>_v<visitcode> -> <subjectID>
 pcs.10.df$subject <- str_extract(pcs.10.df$subject, "\\d+")

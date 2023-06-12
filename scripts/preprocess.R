@@ -1,3 +1,4 @@
+.libPaths("/project/renv/library/R-4.2/aarch64-unknown-linux-gnu")
 #!/usr/bin/env Rscript
 library(optparse)
 library(dplyr)
@@ -14,6 +15,14 @@ parser <- add_option(parser, c("--trait"), type="character",
                      default="BMI",
                      help="trait ex) BMI",
                      metavar="trait name")
+parser <- add_option(parser, c("--minBinWidth"), type="numeric", default=45,
+                     help="minimum bin width to keep")
+parser <- add_option(parser, c("--minPercentsExpressed"), type="numeric", default=0.015,
+                     help="minimum percent of samples to have at least 1 read")
+parser <- add_option(parser, c("--minCPM"), type="numeric", default=3,
+                      help="minimum counts per million to keep")
+parser <- add_option(parser, c("--binFile"), type="character", default="",
+                      help="bin RDS file path")
 opt = parse_args(parser)
 
 # check cmd line arguments
@@ -32,6 +41,10 @@ x = foreach(
 
 # Set command line input
 trait <- opt$trait
+# QC param
+minBinWidth <- opt$minBinWidth
+minPercentsExpressed <- opt$minPercentsExpressed
+minCPM <- opt$minCPM
 
 # PARAMETERS
 visitcode = 1 # 1 or 2
@@ -42,12 +55,15 @@ vst.out.path <- paste0("outputs/preprocessed/vst_", trait, ".RDS")
 pc.out.path <- paste0("outputs/preprocessed/pc_", trait, ".csv")
 
 # input file paths
-exon.count.path <- "data/diffUTR_count_combined.RDS"
-trait.file.path <- paste0("data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/adjusted_",trait,".csv")
-whatdatall.path <- "data/whatdatall.csv"
-qualimap.path <- "data/llfs_qualimap_20230323.csv"
-gtfPATH = "data/gencode.v38.annotation.gtf"
+exon.count.path <- "/project/data/diffUTR_count_combined.RDS"
+trait.file.path <- paste0("/project/data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/adjusted_",trait,".csv")
+whatdatall.path <- "/project/data/whatdatall.csv"
+qualimap.path <- "/project/data/llfs_qualimap_20230323.csv"
 
+# create output path directory if not existing.
+if (!dir.exists("outputs/preprocessed/")) {
+  dir.create("outputs/preprocessed/", recursive = TRUE)
+}
 
 
 # read files
@@ -110,11 +126,11 @@ print(paste("generated RDS file has dimension of ",dim(rds)))
 saveRDS(rds, file=out.path)
 
 ## filter for bins: QC
-bins <- prepareBins(gtfPATH, stranded=FALSE)
+bins <- readRDS(opt$binFile)
 exp_se <- SummarizedExperiment(assays=list(counts=rds),
                                rowData=bins)
 # Look into bin width and filter
-MinBinWidth <- 45 # it was chosen so that the number of the remaining bins < 1M
+MinBinWidth <- minBinWidth # it was chosen so that the number of the remaining bins < 1M
 row_width_filter <- width(ranges(bins)) > MinBinWidth
 exp_se <- exp_se[row_width_filter,]
 
@@ -127,8 +143,8 @@ row_excessive_filter <- myRowMeans < maxAvgCount
 exp_se <- exp_se[row_excessive_filter,]
 
 # Filter for lowly expressed exons.
-min_num_samples = floor(ncol(exp_se) * 0.015)
-expression_level_filter <- rowSums(cpm(assays(exp_se)$counts > 3)) >= min_num_samples
+min_num_samples = floor(ncol(exp_se) * minPercentsExpressed)
+expression_level_filter <- rowSums(cpm(assays(exp_se)$counts > minCPM)) >= min_num_samples
 exp_passing <- exp_se[expression_level_filter, ] # no need sample filter as we are using samples used for TWAS
 
 # counts assay is currently a data.frame, need to convert into data.matrix
@@ -138,7 +154,7 @@ assays(exp_passing)$counts <- data.matrix(assays(exp_passing)$counts)
 # convert RangedSummarizedExperiment object to DESeqDataSet
 dds <- DESeqDataSet(exp_passing, design=~1)
 dds <- estimateSizeFactors(dds)
-vst_obj <- vst(dds, blind=T)
+vst_obj <- dds # FIXME: for real run on the cluster, instead of doing vst, it skips it as sample data is too small to do vst.
 
 print(paste0("after vst dim: ", dim(vst_obj)))
 # output the

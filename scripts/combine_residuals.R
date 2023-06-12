@@ -1,3 +1,4 @@
+.libPaths("/project/renv/library/R-4.2/aarch64-unknown-linux-gnu")
 #!/usr/bin/env Rscript
 library(optparse)
 
@@ -19,12 +20,23 @@ opt = parse_args(parser)
 
 filenames <- list.files(opt$input_prefix, pattern="*.RDS", full.names=TRUE)
 
+# Print to check if the filenames are retrieved correctly
+# print(paste("Number of files found:", length(filenames)))
+
+# if(length(filenames) == 0){
+#   print(paste("trying to read files from ",opt$input_prefix))
+#   stop("No RDS files found in the specified directory")
+# }else{
+#   print(filenames)
+# }
+
 combined_obj <- readRDS(filenames[1])
 
-for (filename in filenames[c(2:length(filenames))]){
-  print(filename)
-  new_obj <- readRDS(filename)
-  combined_obj <- cbind(combined_obj, new_obj)
+if(length(filenames) > 1){
+  for (filename in filenames[c(2:length(filenames))]){
+    new_obj <- readRDS(filename)
+    combined_obj <- cbind(combined_obj, new_obj)
+  }
 }
 
 if (!dir.exists(opt$output_prefix)) {
