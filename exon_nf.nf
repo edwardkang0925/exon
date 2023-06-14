@@ -1,6 +1,6 @@
 params.trait = 'BMI'
-params.numSlice = 2
-params.minBinWidth = 45
+params.numSlice = 100
+params.minBinWidth = 10
 params.minCPM = 3
 params.minPercentsExpressed = 0.015
 params.number_of_plates = 28
@@ -11,6 +11,7 @@ nextflow.enable.dsl=2
 
 process PreprocessData {
     container './exon_latest.sif'
+    label "process_high"
 
     output:
     path("outputs/preprocessed/pc_${params.trait}.csv")
@@ -20,12 +21,13 @@ process PreprocessData {
     """
     Rscript /project/scripts/preprocess.R --trait ${params.trait} --minBinWidth ${params.minBinWidth} \
         --minCPM ${params.minCPM} --minPercentsExpressed ${params.minPercentsExpressed} \
-        --binFile "/project/data/bins_sample.RDS"
+        --binFile "/project/data/bins.RDS"
     """
 }
 
 process PrepareRegression {
     container './exon_latest.sif'
+    label "process_medium"
 
     input:
     path(pc)
@@ -46,6 +48,7 @@ process PrepareRegression {
 
 process StepwiseRegression {
     container './exon_latest.sif'
+    label "process_low"
 
     input:
     path(slicedBinCount)
@@ -66,6 +69,7 @@ process StepwiseRegression {
 
 process MergeResiduals {
     container './exon_latest.sif'
+    label "process_medium"
     publishDir "./", mode: 'copy'
 
     input:
@@ -84,6 +88,7 @@ process MergeResiduals {
 
 process PrepareConditionalGenesis {
     container './exon_latest.sif'
+    label "process_medium"
 
     input:
     path(mergedResidualsExpression)
@@ -104,6 +109,7 @@ process PrepareConditionalGenesis {
 
 process RunConditionalGenesis {
     container './exon_latest.sif'
+    label "process_low"
 
     input:
     path(conditionalGenesisInputSliceFile)
@@ -122,6 +128,7 @@ process RunConditionalGenesis {
 
 process MergeConditionalGenesis {
     container './exon_latest.sif'
+    label "process_high"
     publishDir "./", mode: 'copy'
 
     input:
