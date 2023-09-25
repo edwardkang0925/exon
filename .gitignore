@@ -5,5 +5,7 @@
 outputs/
 renv/
 work/
+tmpdata/
+data/
 .nextflow*
 data/gencode.v38.annotation.gtf
