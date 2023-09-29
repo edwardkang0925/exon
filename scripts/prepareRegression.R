@@ -1,4 +1,5 @@
 .libPaths("/project/renv/library/R-4.2/aarch64-unknown-linux-gnu")
+
 #!/usr/bin/env Rscript
 library(optparse)
 library(foreach)
@@ -7,6 +8,7 @@ library(here)
 library(tidyr)
 library(dplyr)
 library(stringr)
+library(tibble)
 library(fastDummies)
 # library(vsn)
 library(hexbin)
@@ -63,7 +65,6 @@ if (!dir.exists(slicedOutputPATH)) {
 
 # input files paths
 misc_file_path="/project/data/MISC_FINAL_ROUND/"
-input_file_path="outputs/preprocessed/" #FIXME: when using nextflow, take this as command line argument.
 phenotype_file_path="/project/data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/"
 
 blood_all_filepath <- paste0(misc_file_path, "blood_all.csv")

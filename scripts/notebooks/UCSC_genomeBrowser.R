@@ -1,9 +1,38 @@
 library(rtracklayer)
 library(GenomicRanges)
+library(dplyr)
+library(tidyr)  # For the gather function used later
 library(biomaRt)
 # read GRange object containing bins of our interest
-targets = readRDS("data/postAnalysis_bins_Grange_objs/bmi_condSigBins.RDS")
+df = readRDS("data/pipelineResult/comnbinedConditionalGenesis_lnTG.RDS")
 
+# read bin coordinate
+bins <- readRDS("data/bins.RDS")
+
+# subset for conditionally significant bins.
+df_sig <- df[df$p_lrt <= 0.01 / dim(df)[1],]
+
+# now subset bins based on bin's name
+df_list_sigbins <- list()
+for(bin in df_sig$exon){
+  # Convert bin name to gene name by removing the last ".X" part
+  gene_name <- unlist(strsplit(bin, "\\."))[1:(length(unlist(strsplit(bin, "\\."))) - 1)] %>% paste(collapse = ".")
+  bin_number <- as.numeric(tail(unlist(strsplit(bin, "\\.")), 1))
+  print(gene_name)
+  print(bin_number)
+  # Filter bins and store the filtered dataframe in df_list_sigbins
+  df_list_sigbins[[length(df_list_sigbins) + 1]] <- bins[bins$gene == gene_name & bins$bin_id == bin_number,]
+}
+targets <- do.call(c, df_list_sigbins)
+
+# REMOVE later: currently, bins overlapping with multiple genes are problematic as their condtional analysis was not conducted correctly.
+# drop bins that have ambiguous gene
+targets <- targets[targets$geneAmbiguous == FALSE,]
+targets$gene_name <- as.character(targets$gene_name)
+
+cma_tg_genes <- c("AKAP12", "CA8", "CPA3", "ENPP3", "FCER1A", "GATA2", "GCSAML", "HDC", "HRH4", "LINC02458", "MS4A2", "MS4A3", "NTRK1", "SLC45A3")
+intersecting_genes <- c("MS4A2", "NTRK1", "AKAP12", "CA8", "GATA2", "HDC", "SLC45A3", "ENPP3")
+targets <- targets[targets$gene_name %in% intersecting_genes]
 # Set up biomaRt
 mart <- useMart(biomart = "ensembl", dataset = "hsapiens_gene_ensembl")
 

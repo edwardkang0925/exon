@@ -6,6 +6,8 @@ params.minPercentsExpressed = 0.015
 params.number_of_plates = 28
 params.visitcode = "v1"
 params.binLevelPval = 0.01
+params.binsRDSpath = '/project/data/bins.RDS'
+params.hgnc2ensemblMapPath = '/project/data/HGNC2ensembl.RDS'
 
 nextflow.enable.dsl=2
 
@@ -93,10 +95,11 @@ process PrepareConditionalGenesis {
 
     script:
     """
-    Rscript /project/scripts/preprocessForConditional_all.R \
+    Rscript /project/scripts/preprocessForConditional_all_updating.R \
         --trait ${params.trait} \
         --numSlice ${params.numSlice} \
-        --pvalThreshold ${params.binLevelPval} \
+        --bins ${params.binsRDSpath} \
+        --hgnc2ensembl ${params.hgnc2ensemblMapPath} \
         --mergedResidualsPath ${mergedResidualsExpression} \
         --outputDir "outputs/conditionalGenesisInput/${params.trait}/"
     """

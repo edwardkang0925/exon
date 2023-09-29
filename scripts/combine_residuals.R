@@ -3,9 +3,9 @@
 library(optparse)
 
 parser <- OptionParser()
-parser <- add_option(parser, c("--input_prefix"), type="character",
+parser <- add_option(parser, c("--input_files"), type="character",
                      default="outputs/residuals_slice/",
-                     help="location of RDS files to combine",
+                     help="list of RDS files to combine",
                      metavar="/path/to/dir/with/RDSfiles")
 
 parser <- add_option(parser, c("--output_prefix"), type="character",
@@ -18,19 +18,30 @@ parser <- add_option(parser, c("--output_prefix"), type="character",
 
 opt = parse_args(parser)
 
-filenames <- list.files(opt$input_prefix, pattern="*.RDS", full.names=TRUE)
-
+filenames <- unlist(strsplit(opt$input_files, ","))
+print(filenames)
+print(getwd())
 # Print to check if the filenames are retrieved correctly
 # print(paste("Number of files found:", length(filenames)))
 
 # if(length(filenames) == 0){
-#   print(paste("trying to read files from ",opt$input_prefix))
+#   print(paste("trying to read files from ",opt$input_files))
 #   stop("No RDS files found in the specified directory")
 # }else{
 #   print(filenames)
 # }
 
-combined_obj <- readRDS(filenames[1])
+if (!file.exists(filenames[1])) {
+  stop(paste("File does not exist:", filenames[1]))
+} else if (file.access(filenames[1], mode = 4) != 0) {
+  stop(paste("Do not have read permissions for file:", filenames[1]))
+} else {
+  combined_obj <- tryCatch({
+    readRDS(filenames[1])
+  }, error = function(e) {
+    stop(paste("Error reading file:", filenames[1], "\n", e))
+  })
+}
 
 if(length(filenames) > 1){
   for (filename in filenames[c(2:length(filenames))]){

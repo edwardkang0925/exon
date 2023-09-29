@@ -50,13 +50,39 @@ colnames(residuals_df) <- colnames(exon_expression_df)
 #residuals_normality_shapiro_p_values <- vector(mode='list', length=dim(exon_expression_df)[2])
 #residuals_normality_shapiro_w_values <- vector(mode='list', length=dim(exon_expression_df)[2])
 base_covariates_list = c("age", "sex", "fc_DK", "fc_NY", "fc_PT", "amon", "aneu", "plt", "rbc", "wbc", "percent_intergenic", "age_2")
-additional_covariates_list = colnames(combined_df)[12:42] # plate + pcs FIXME: change the index to 12:48 for real run
+additional_covariates_list = colnames(combined_df)[12:42] # plate + pcs
 
 
 count = 0
 index <- 1
 temp_residuals <- NULL
 #residual adjustment using stepwise regression
+# for (values in colnames(exon_expression_df)){
+#   #new code start
+#   count = count + 1
+#   if(count %% 10 == 0){
+#     print(count)
+#   }
+#   combined_df["gene"] <- as.numeric(exon_expression_df[,values])
+#   fixed_effects <- as.formula(paste("gene", paste(c(base_covariates_list, additional_covariates_list), collapse="+"), sep="~"))
+#   model <- lm(fixed_effects, data=combined_df)
+#   tryCatch({
+#     model_step <- step(model, scope=list(upper = as.formula(paste("~", paste(c(base_covariates_list, additional_covariates_list), collapse="+"))),
+#                                         lower = as.formula(paste("~", paste(base_covariates_list, collapse="+")))), trace=FALSE)
+#     temp_residuals <- resid(model_step)
+#     residuals_df[,index] <- temp_residuals
+#   }, error = function(e) {
+#     print(paste("Error in stepwise regression for gene", values))
+#     temp_residuals <- runif(dim(residuals_df)[1])
+#     residuals_df[,index] <- temp_residuals
+#   })
+#   #new code end
+#   combined_df["gene"] <- NULL
+#   #residuals_normality_shapiro_p_values[[index]] <- shapiro.test(temp_residuals)$p.value
+#   #residuals_normality_shapiro_w_values[[index]] <- shapiro.test(temp_residuals)$W
+#   index <- index + 1
+# }
+## For test pipeline run on local with sample data, use regression instead of step-wise regression.
 for (values in colnames(exon_expression_df)){
   #new code start
   count = count + 1
@@ -64,22 +90,15 @@ for (values in colnames(exon_expression_df)){
     print(count)
   }
   combined_df["gene"] <- as.numeric(exon_expression_df[,values])
-  fixed_effects <- as.formula(paste("gene", paste(c(base_covariates_list, additional_covariates_list), collapse="+"), sep="~"))
+  fixed_effects <- as.formula(paste("gene", paste(c(base_covariates_list), collapse="+"), sep="~"))
   model <- lm(fixed_effects, data=combined_df)
-  tryCatch({
-    model_step <- step(model, scope=list(upper = as.formula(paste("~", paste(c(base_covariates_list, additional_covariates_list), collapse="+"))),
-                                        lower = as.formula(paste("~", paste(base_covariates_list, collapse="+")))), trace=FALSE)
-    temp_residuals <- resid(model_step)
-    residuals_df[,index] <- temp_residuals
-  }, error = function(e) {
-    print(paste("Error in stepwise regression for gene", values))
-    temp_residuals <- runif(dim(residuals_df)[1])
-    residuals_df[,index] <- temp_residuals
-  })
+
+  # Instead of stepwise regression, just compute residuals from the original model
+  temp_residuals <- resid(model)
+  residuals_df[,index] <- temp_residuals
+
   #new code end
   combined_df["gene"] <- NULL
-  #residuals_normality_shapiro_p_values[[index]] <- shapiro.test(temp_residuals)$p.value
-  #residuals_normality_shapiro_w_values[[index]] <- shapiro.test(temp_residuals)$W
   index <- index + 1
 }
 if (!dir.exists(opt$output_directory)) {

@@ -1,4 +1,5 @@
 .libPaths("/project/renv/library/R-4.2/aarch64-unknown-linux-gnu")
+
 #!/usr/bin/env Rscript
 library(optparse)
 library(SeqArray)
@@ -19,10 +20,10 @@ parser <- add_option(parser, c("--exon.path"), type="character",
                      default="outputs/conditionalGenesisInput_all/BMI/conditionalSlice_001.RDS",
                      help="path to exon slice",
                      metavar="'/path/to/file/conditionalSlice_###.RDS'")
-parser <- add_option(parser, c("--outputFile"), type="character",
-                     default="outputs/conditionalGenesisOut_all/BMI/results_001.RDS",
-                     help="output filename including path",
-                     metavar="/path/to/output/outputfilename")
+parser <- add_option(parser, c("--outputDir"), type="character",
+                     default="outputs/conditionalGenesisOut_all/BMI/",
+                     help="output Dir name including path",
+                     metavar="/path/to/output/outputDir")
 
 opt = parse_args(parser)
 
@@ -42,13 +43,15 @@ x = foreach(
 
 # read command line input
 exon.path <- opt$exon.path 
-output.path <- opt$outputFile
+output.path <- opt$outputDir
 trait <- opt$trait # New argument for the trait
 
+# define slice index to be used for output file name
+sliceIndex = exon.path %>% str_extract("(?<=_)[^_\\.]+(?=\\.)") %>% as.character()
+
 # create output dir
-directory_path <- dirname(output.path)
-if (!dir.exists(directory_path)) {
-  dir.create(directory_path, recursive = TRUE)
+if (!dir.exists(output.path)) {
+  dir.create(output.path, recursive = TRUE)
 }
 
 # path to required files: 
@@ -56,7 +59,7 @@ kinship.matrix.path <- paste0("/project/data/kinship/kinship_",trait,".RDS")
 kinship.matrix <- readRDS(kinship.matrix.path)
 trait.df.path <- paste0("/project/data/ADJUSTED_HEART_DISEASE_RELATED_TRAITS_FINAL_ROUND/adjusted_", trait,".csv")
 trait.df <- read.csv(trait.df.path)
-print(kinship.matrix)
+trait.df$subject <- as.character(trait.df$subject)
 
 
 # Load the exon expression data
@@ -68,10 +71,10 @@ results_list <- list()
 # Iterate over each element (data frame) in the exon_data list
 for (i in seq_along(exon_data)) {
   # Get the current data frame from the list
-  current_df <- exon_data[[i]]
+  current_df <- as.data.frame(exon_data[[i]])
+  current_df$subject <- as.character(rownames(current_df))
   
   # Merge with the trait data frame
-  current_df$subject <- rownames(current_df)
   merged_df <- merge(current_df, trait.df, by="subject") %>%
     column_to_rownames(var="subject")
   
@@ -130,4 +133,4 @@ for (i in seq_along(exon_data)) {
 combined_results <- do.call(rbind, results_list)
 print(dim(combined_results))
 # Save the combined results
-saveRDS(combined_results, file = output.path)
+saveRDS(combined_results, file = paste0(output.path, "conditionalGenesisResultSlice_", sliceIndex, ".RDS"))
